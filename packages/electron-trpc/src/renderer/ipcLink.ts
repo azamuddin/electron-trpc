@@ -95,7 +95,9 @@ export function ipcLink<TRouter extends AnyRouter>(): TRPCLink<TRouter> {
     return ({ op }) => {
       return observable((observer) => {
         op.input = runtime.transformer.serialize(op.input);
-        console.log('WELCOME TO THE GITHUB PACKAGE ================================');
+        op.context = {
+          token: 'JUST A DUMMY TOKEN',
+        };
 
         let isDone = false;
         const unsubscribe = client.request(op, {
