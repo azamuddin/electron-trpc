@@ -1,6 +1,6 @@
 {
-  "name": "electron-trpc",
-  "description": "Electron support for tRPC",
+  "name": "electron-trpc-plus",
+  "description": "Electron support for tRPC ",
   "version": "0.5.2",
   "exports": {
     "./main": {
@@ -14,7 +14,7 @@
       "types": "./dist/renderer.d.ts"
     }
   },
-  "author": "Jason Nall <jsonnull@gmail.com>",
+  "author": "Muhammad Azamuddin <mas.azamuddin@gmail.com>",
   "license": "MIT",
   "files": [
     "dist",
