@@ -8,6 +8,10 @@ import debug from 'debug';
 
 const log = debug('electron-trpc:renderer:ipcLink');
 
+export interface IPCLinkOptions {
+  getContext?: () => Promise<any>;
+}
+
 type IPCCallbackResult<TRouter extends AnyRouter = AnyRouter> = TRPCResponseMessage<
   unknown,
   inferRouterContext<TRouter>
@@ -39,8 +43,10 @@ const getElectronTRPC = () => {
 class IPCClient {
   #pendingRequests = new Map<string | number, IPCRequest>();
   #electronTRPC = getElectronTRPC();
+  #ipcLinkOptions: IPCLinkOptions | null = null;
 
-  constructor() {
+  constructor(options: IPCLinkOptions) {
+    this.#ipcLinkOptions = options;
     this.#electronTRPC.onMessage((response: TRPCResponseMessage) => {
       this.#handleResponse(response);
     });
@@ -63,13 +69,24 @@ class IPCClient {
   request(op: Operation, callbacks: IPCCallbacks) {
     const { type, id } = op;
 
-    this.#pendingRequests.set(id, {
-      type,
-      callbacks,
-      op,
-    });
-
-    this.#electronTRPC.sendMessage({ method: 'request', operation: op });
+    if (this.#ipcLinkOptions?.getContext) {
+      this.#ipcLinkOptions.getContext().then((context) => {
+        const opWithContext = { ...op, context };
+        this.#pendingRequests.set(id, {
+          type,
+          callbacks,
+          op: opWithContext,
+        });
+        this.#electronTRPC.sendMessage({ method: 'request', operation: opWithContext });
+      });
+    } else {
+      this.#pendingRequests.set(id, {
+        type,
+        callbacks,
+        op,
+      });
+      this.#electronTRPC.sendMessage({ method: 'request', operation: op });
+    }
 
     return () => {
       const callbacks = this.#pendingRequests.get(id)?.callbacks;
@@ -88,16 +105,13 @@ class IPCClient {
   }
 }
 
-export function ipcLink<TRouter extends AnyRouter>(): TRPCLink<TRouter> {
+export function ipcLink<TRouter extends AnyRouter>(options: IPCLinkOptions): TRPCLink<TRouter> {
   return (runtime) => {
-    const client = new IPCClient();
+    const client = new IPCClient(options);
 
     return ({ op }) => {
       return observable((observer) => {
         op.input = runtime.transformer.serialize(op.input);
-        op.context = {
-          token: 'JUST A DUMMY TOKEN',
-        };
 
         let isDone = false;
         const unsubscribe = client.request(op, {
